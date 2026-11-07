@@ -1,0 +1,31 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Prompt', ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  background: #ffffff;
+  color: #111827;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ซ่อน scrollbar ของแถบเลื่อนแนวนอน แต่ยังเลื่อนได้ */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-fade-in { animation: fade-in 0.2s ease-out both; }
+.animate-pop-in { animation: pop-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
