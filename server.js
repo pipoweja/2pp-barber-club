@@ -7,6 +7,7 @@
 import express from 'express';
 import cors from 'cors';
 import crypto from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -39,7 +40,15 @@ const toMinutes = (hhmm) => {
 const toHHmm = (mins) =>
   `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 
-/** วันที่ตามเวลาท้องถิ่นของเครื่อง server ในรูปแบบ YYYY-MM-DD */
+/**
+ * "ตอนนี้" ตามเวลาร้าน (Asia/Bangkok) ไม่ว่าเครื่อง server จะตั้ง timezone อะไร
+ * (Vercel รันเป็น UTC) — คืน Date ที่ getHours()/getDate() ฯลฯ ตรงกับเวลาไทย
+ * ใช้สำหรับคำนวณวัน/เวลาเท่านั้น ไม่ใช้เป็น timestamp จริง
+ */
+const SHOP_TZ = 'Asia/Bangkok';
+const shopNow = () => new Date(new Date().toLocaleString('en-US', { timeZone: SHOP_TZ }));
+
+/** Date → YYYY-MM-DD (อ่านค่าจาก local getters) */
 const formatDate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -85,7 +94,7 @@ function getAvailableSlots(staffId, date, duration = SLOT_STEP_MIN) {
     });
 
   let earliest = open;
-  const now = new Date();
+  const now = shopNow();
   if (date === formatDate(now)) {
     earliest = Math.max(open, now.getHours() * 60 + now.getMinutes() + 1);
   }
@@ -103,7 +112,7 @@ function getAvailableSlots(staffId, date, duration = SLOT_STEP_MIN) {
 function getAvailableSlotsIgnoringBookings(date, duration = SLOT_STEP_MIN) {
   const open = toMinutes(OPEN_TIME);
   const close = toMinutes(CLOSE_TIME);
-  const now = new Date();
+  const now = shopNow();
   const earliest = date === formatDate(now) ? now.getHours() * 60 + now.getMinutes() + 1 : open;
   const out = [];
   for (let t = open; t + duration <= close; t += SLOT_STEP_MIN) if (t >= earliest) out.push(toHHmm(t));
@@ -159,7 +168,7 @@ function seed() {
   );
 
   // ตัวอย่างการจองเดิม (วันนี้และพรุ่งนี้) เพื่อให้เห็นว่าระบบตัดช่วงที่ไม่ว่างออก
-  const today = new Date();
+  const today = shopNow();
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
   const sample = [
@@ -225,7 +234,7 @@ app.get('/api/availability', (req, res) => {
 
   const member = findStaff(staffId);
   const dayOff = member.daysOff.includes(dayOfWeek(date));
-  const todayStr = formatDate(new Date());
+  const todayStr = formatDate(shopNow());
   const slots = date < todayStr ? [] : getAvailableSlots(staffId, date, svc?.duration);
 
   // เหตุผลที่ไม่มีช่วงว่าง เพื่อให้หน้าเว็บแสดงข้อความได้ตรง
@@ -278,8 +287,8 @@ app.post('/api/bookings', (req, res) => {
   }
 
   // 3) ตรวจช่วงวัน
-  const todayStr = formatDate(new Date());
-  const limit = new Date();
+  const todayStr = formatDate(shopNow());
+  const limit = shopNow();
   limit.setDate(limit.getDate() + MAX_ADVANCE_DAYS);
   if (date < todayStr) return res.status(400).json({ code: 'PAST_DATE', message: 'ไม่สามารถจองย้อนหลังได้' });
   if (date > formatDate(limit)) {
@@ -342,6 +351,12 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ code: 'SERVER_ERROR', message: 'เกิดข้อผิดพลาดที่เซิร์ฟเวอร์' });
 });
 
-app.listen(PORT, () => {
-  console.log(`✂  2PP The Barber Club API → http://localhost:${PORT}`);
-});
+// ใช้เป็น Vercel Serverless Function ได้ (api/index.js import app ไปใช้)
+export default app;
+
+// รันเป็นเซิร์ฟเวอร์ปกติเมื่อสั่ง `node server.js` โดยตรงเท่านั้น
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  app.listen(PORT, () => {
+    console.log(`✂  2PP The Barber Club API → http://localhost:${PORT}`);
+  });
+}

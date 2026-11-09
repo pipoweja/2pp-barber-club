@@ -30,5 +30,13 @@ npm run dev        # รัน API (http://localhost:3001) + Frontend (http://lo
 | POST | `/api/bookings` | สร้างการจอง — 400 ข้อมูลไม่ครบ, 409 เวลาชน (`SLOT_TAKEN`) |
 | GET | `/api/bookings` | ดูการจองทั้งหมด (ตรวจสอบ) |
 
+## Deploy บน Vercel
+
+- `api/index.js` ส่งต่อทุก request `/api/*` ให้ Express app ใน `server.js` (rewrite อยู่ใน `vercel.json`)
+- Frontend build ด้วย `npm run build` → `dist/`
+- คำนวณ "วันนี้/เวลาตอนนี้" ตามเวลาไทย (`Asia/Bangkok`) เสมอ แม้ server ของ Vercel จะเป็น UTC
+- ⚠️ ข้อมูลการจองยังเก็บใน memory: บน Vercel แต่ละ instance มีข้อมูลแยกกันและหายเมื่อ function ถูกปลุกใหม่ (cold start)
+  การจองจริงจึงอาจหาย/ไม่เห็นกันข้าม instance — ถ้าจะใช้งานจริงควรต่อฐานข้อมูล (เช่น Vercel Postgres/Neon, Upstash Redis)
+
 หมายเหตุ: `serviceId` ใน availability เป็นตัวเลือกเสริม ใช้คำนวณความยาวบริการ เพื่อไม่ให้เสนอเวลาที่บริการยาวจะไปทับคิวถัดไป
 ข้อมูลอยู่ในหน่วยความจำ — รีสตาร์ท server แล้วการจองจะหายไป
